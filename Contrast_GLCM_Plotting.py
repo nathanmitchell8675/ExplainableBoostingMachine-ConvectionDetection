@@ -130,10 +130,11 @@ for n in range(num1, num2):
             ax[i,j].set_xticks([])
             ax[i,j].set_yticks([])
 
+    fig = plt.gcf()
     fig.set_size_inches((8.5, 11), forward=False)
     plt.show()
     filepath = r'/home/nmitchell/GLCM/Images-Contrast/'
     filepath += 'Contrast_' + str(isamp) + ".png"
-    plt.savefig(filepath)
+    fig.savefig(filepath)
     print(filepath)
-    plt.close()
+#    fig.close()
