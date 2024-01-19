@@ -62,11 +62,11 @@ for n in range(num1, num2):
     ax[0,1].imshow(cv_image, cmap = 'gray', origin = 'lower')
 
     ax[1,1].set_title("Min Mask")
-    ax[1,1].imshow(og_image, cmap = 'gray', origin = 'lower')
+    ax[1,1].imshow(og_image, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
     ax[1,1].imshow(metrics["Tile Min Mask"][isamp], cmap = grn_cm, origin = 'lower', extent = (0,256,0,256))
 
     ax[2,1].set_title("Mean Mask")
-    ax[2,1].imshow(og_image, cmap = 'gray', origin = 'lower')
+    ax[2,1].imshow(og_image, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
     ax[2,1].imshow(metrics["Tile Mean Mask"][isamp], cmap = grn_cm, origin = 'lower', extent = (0,256,0,256))
 
     ### COLUMN  3 ###
@@ -108,7 +108,7 @@ for n in range(num1, num2):
     ax[0,5].imshow(cv_image, cmap = 'gray', origin = 'lower')
 
     ax[1,5].set_title("Convolve GLCM")
-    ax[1,5].imshow(og_image, cmap = 'gray', origin = 'lower')
+    ax[1,5].imshow(og_image, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
     #ax[1,5].set_xlabel("Max: " + "%.2f" % max(np.array(metrics["Max/Min Contrast C"])[:,0]) + "\n Min: " + "%.2f" % min(np.array(metrics["Max/Min Contrast C"])[:,1]))
     ax[1,5].imshow(ones, alpha = metrics["Convolved Contrast Values"][isamp], cmap = red_cm, origin = 'lower', extent = (0,256,0,256))
 
@@ -130,8 +130,9 @@ for n in range(num1, num2):
             ax[i,j].set_xticks([])
             ax[i,j].set_yticks([])
 
-    fig = plt.gcf()
-    fig.set_size_inches((8.5, 11), forward=False)
+    #fig = plt.gcf()
+    #fig.set_size_inches((8.5, 11), forward=False)
+    plt.tight_layout()
     plt.show()
     filepath = r'/home/nmitchell/GLCM/Images-Contrast/'
     filepath += 'Contrast_' + str(isamp) + ".png"
