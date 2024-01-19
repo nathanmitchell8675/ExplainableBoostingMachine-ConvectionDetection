@@ -21,7 +21,7 @@ with open(filepath, 'rb') as file:
 #NEW: 10, *11*, 19
 num= 204
 num1 = 0
-num2 = 2
+num2 = 204
 tile_size = 8
 num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
