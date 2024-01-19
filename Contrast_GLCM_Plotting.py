@@ -12,7 +12,7 @@ import pickle as pkl
 ###############################
 
 #Load data
-filepath = r'/home/nmitchell/GLCM_project/metrics'
+filepath = r'/home/nmitchell/GLCM/metrics'
 with open(filepath, 'rb') as file:
     metrics = pkl.load(file)
 
@@ -20,8 +20,8 @@ with open(filepath, 'rb') as file:
 #Possible Examples: 16, 21, 25, 50, 55, 61
 #NEW: 10, *11*, 19
 num= 204
-num1 = 2
-num2 = 3
+num1 = 21
+num2 = 204
 tile_size = 8
 num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
@@ -40,9 +40,9 @@ for n in range(num1, num2):
     #Import variables that are used more than once
     og_image = metrics["Original Image"][isamp]
     cv_image = metrics["Convolved Image"][isamp]
-    ir_image = cv.resize(metrics["Infrared Image"][isamp].astype('float32'), (256, 256), interpolation = cv.INTER_CUBIC)
+    ir_image = metrics["Infrared Image"][isamp]
 
-    ones = np.ones((64,64))
+    ones = np.ones((int(256/tile_size), int(256/tile_size)))
 
     fig, ax = plt.subplots(3,7)
 
@@ -87,7 +87,7 @@ for n in range(num1, num2):
 
     ax[1,3].set_title("Infrared Mask")
     ax[1,3].imshow(ir_image, cmap = "gray", origin = "lower")
-    ax[1,3].imshow(metrics["IR Mask"][isamp], cmap = grn_cm, origin = 'lower', extent = (0,256,0,256))
+    ax[1,3].imshow(metrics["IR Mask"][isamp], cmap = grn_cm, origin = 'lower') #, extent = (0,256,0,256))
     ax[1,3].set_xlabel("Threshold Value: 250K")
 
     ax[2,3].set_visible(False)
@@ -130,5 +130,10 @@ for n in range(num1, num2):
             ax[i,j].set_xticks([])
             ax[i,j].set_yticks([])
 
-    plt.show()
-
+#    plt.show()
+    #plt.savefig()
+    filepath = r'/home/nmitchell/GLCM/Images-Contrast/'
+    filepath += 'Contrast_' + str(isamp) + ".png"
+    plt.savefig(filepath)
+    print(filepath)
+    plt.close()

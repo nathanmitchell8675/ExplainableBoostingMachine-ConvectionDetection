@@ -36,6 +36,7 @@ mean_mask   = []
 min_mask    = []
 IR_mask     = []
 mean_app    = []
+mean_app_c  = []
 min_app     = []
 min_app_c   = []
 ir_app_mean = []
@@ -145,10 +146,6 @@ for n in range(num1, num2):
 for n in range(num1, num2):
     isamp = n
 
-    metrics["Tile Mean Mask"][isamp] = (metrics["Tile Mean Mask"][isamp] >= np.mean(metrics["Mean Brightness"])).astype(int)
-    metrics["Tile Min Mask"][isamp]  = (metrics["Tile Min Mask"][isamp]  >= np.mean(metrics["Mean Brightness"])).astype(int)
-    metrics["IR Mask"].append((metrics["Infrared Image"][isamp] <= 250).astype(int))
-
     cvs  = []
     cvsc = []
 
@@ -184,7 +181,7 @@ for n in range(num1, num2):
     metrics["IR Mask Applied Mean"].append(np.multiply(metrics["Mean Mask Applied"][isamp], ir_mask))
     metrics["IR Mask Applied Min"].append(np.multiply(metrics["Min Mask Applied"][isamp], ir_mask))
 
-filepath = r'/home/nmitchell/GLCM_project/'
+filepath = r'/home/nmitchell/GLCM/'
 filepath+= 'metrics'
 pkl.dump(metrics, open(filepath, 'wb'))
 
