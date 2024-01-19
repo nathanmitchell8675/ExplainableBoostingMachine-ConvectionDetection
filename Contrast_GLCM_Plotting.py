@@ -21,7 +21,7 @@ with open(filepath, 'rb') as file:
 #NEW: 10, *11*, 19
 num= 204
 num1 = 0
-num2 = 1
+num2 = 204
 tile_size = 8
 num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
@@ -133,7 +133,7 @@ for n in range(num1, num2):
     #fig = plt.gcf()
     #fig.set_size_inches((8.5, 11), forward=False)
     plt.tight_layout()
-    plt.show()
+#    plt.show()
     filepath = r'/home/nmitchell/GLCM/Images-Contrast/'
     filepath += 'Contrast_' + str(isamp) + ".png"
     fig.savefig(filepath)
