@@ -20,8 +20,8 @@ with open(filepath, 'rb') as file:
 #Possible Examples: 16, 21, 25, 50, 55, 61
 #NEW: 10, *11*, 19
 num= 204
-num1 = 21
-num2 = 204
+num1 = 0
+num2 = 1
 tile_size = 8
 num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
@@ -130,8 +130,8 @@ for n in range(num1, num2):
             ax[i,j].set_xticks([])
             ax[i,j].set_yticks([])
 
-#    plt.show()
-    #plt.savefig()
+    fig.set_size_inches((8.5, 11), forward=False)
+    plt.show()
     filepath = r'/home/nmitchell/GLCM/Images-Contrast/'
     filepath += 'Contrast_' + str(isamp) + ".png"
     plt.savefig(filepath)
