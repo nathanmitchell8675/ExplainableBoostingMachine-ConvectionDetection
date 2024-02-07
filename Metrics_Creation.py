@@ -43,13 +43,14 @@ ir_app_mean = []
 ir_app_min  = []
 maxmin      = []
 maxmin_c    = []
+expanded_gt = []
 
 metrics = {"Original Image": og_image, "Ground Truth": true_color, "Convolved Image": conv_image,
           "Infrared Image": IR_image, "Mean Brightness": means, "Min Brightness": mins, "Contrast Values": contrasts,
           "Convolved Contrast Values": contrasts_c, "Tile Mean Mask": mean_mask, "Tile Min Mask": min_mask,
           "IR Mask": IR_mask, "Mean Mask Applied": mean_app, "Min Mask Applied": min_app, "Mean Mask Applied C": mean_app_c,
           "Min Mask Applied C": min_app_c, "IR Mask Applied Mean": ir_app_mean, "IR Mask Applied Min": ir_app_min,
-          "Max/Min Contrast": maxmin, "Max/Min Contrast C": maxmin_c}
+          "Max/Min Contrast": maxmin, "Max/Min Contrast C": maxmin_c, "Expanded Ground Truth": expanded_gt}
 
 for n in range(num1, num2):
     isamp = n
@@ -66,13 +67,32 @@ for n in range(num1, num2):
     data_truth_color = np.zeros(len(data_truth)*len(data_truth)*4)
     data_truth_color = data_truth_color.reshape(len(data_truth),len(data_truth),4)
 
+    expanded_gt = np.zeros((256,256,4))
+
     for i in range(len(data_truth)):
         for j in range(len(data_truth)):
             if(data_truth[i,j] == 100):
                 data_truth_color[i,j,:] = [1,0,0,1]
             else:
                 data_truth_color[i,j,:] = [1,1,1,1]
-
+            if(data_truth[i,j] == 100):
+                if((i-7) < 0):
+                    a = 0
+                else:
+                    a = (i-7)
+                if((i+8) > len(data_truth)):
+                    b = len(data_truth)
+                else:
+                    b = (i+8)
+                if((j-7) < 0):
+                    c = 0
+                else:
+                    c = (j-7)
+                if((j+8) > len(data_truth)):
+                    d = len(data_truth)
+                else:
+                    d = (j+8)
+                expanded_gt[a:b, c:d, :] = [1,0,0,1]
 
     kernel_9x9 = np.ones((9,9), np.float32)/81
     convolve_data = cv.filter2D(src = data, ddepth = -1, kernel = kernel_9x9)
@@ -84,6 +104,7 @@ for n in range(num1, num2):
     metrics['Infrared Image'].append(resized_IR)
     metrics['Mean Brightness'].append(np.mean(data))
     metrics['Min Brightness'].append(np.min(data))
+    metrics["Expanded Ground Truth"].append(expanded_gt)
 
     convolve_tiles    = []
 
@@ -165,13 +186,15 @@ for n in range(num1, num2):
     metrics["Contrast Values"][isamp] = np.array(cvs).reshape(int(256/tile_size), int(256/tile_size))
     metrics["Convolved Contrast Values"][isamp] = np.array(cvsc).reshape(int(256/tile_size), int(256/tile_size))
 
-    mean_mask = (metrics["Tile Mean Mask"][isamp] >= np.mean(metrics["Mean Brightness"])*1.5).astype(int)
+   #mean_mask = (metrics["Tile Mean Mask"][isamp] >= np.mean(metrics["Mean Brightness"])*1.5).astype(int)
+    mean_mask = (metrics["Tile Mean Mask"][isamp] >= 55.6125).astype(int)
     metrics["Tile Mean Mask"][isamp] = np.where(mean_mask, 1, np.nan)
 
     metrics["Mean Mask Applied"].append(np.multiply(metrics["Contrast Values"][isamp], mean_mask))
     metrics["Mean Mask Applied C"].append(np.multiply(metrics["Convolved Contrast Values"][isamp], mean_mask))
 
-    min_mask  = (metrics["Tile Min Mask"][isamp] >= np.mean(metrics["Mean Brightness"])*1.5).astype(int)
+   #min_mask  = (metrics["Tile Min Mask"][isamp] >= np.mean(metrics["Mean Brightness"])*1.5).astype(int)
+    min_mask  = (metrics['Tile Min Mask'][isamp] >= 55.6125).astype(int)
     metrics["Tile Min Mask"][isamp]  = np.where(min_mask, 1, np.nan)
     metrics["Min Mask Applied"].append(np.multiply(metrics["Contrast Values"][isamp], min_mask))
     metrics["Min Mask Applied C"].append(np.multiply(metrics["Convolved Contrast Values"][isamp], min_mask))
