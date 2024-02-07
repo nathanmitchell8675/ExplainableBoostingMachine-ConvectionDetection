@@ -20,8 +20,8 @@ with open(filepath, 'rb') as file:
 #Possible Examples: 16, 21, 25, 50, 55, 61
 #NEW: 10, *11*, 19
 num= 204
-num1 = 0
-num2 = 204
+num1 = 16
+num2 = 17
 tile_size = 8
 num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
@@ -44,7 +44,7 @@ for n in range(num1, num2):
 
     ones = np.ones((int(256/tile_size), int(256/tile_size)))
 
-    fig, ax = plt.subplots(3,7)
+    fig, ax = plt.subplots(3,8)
 
     ### COLUMN 1 ###
     ax[0,0].set_title("Original Image")
@@ -125,17 +125,24 @@ for n in range(num1, num2):
     ax[2,6].imshow(og_image, cmap = 'gray', origin = 'lower')
     ax[2,6].imshow(ones, alpha = metrics["Mean Mask Applied C"][isamp], cmap = red_cm, origin = 'lower', extent = (0,256,0,256))
 
+    ### COLUMN 8 ###
+    ax[0,7].imshow(metrics["Expanded Ground Truth"][isamp], cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
+
+    ax[1,7].set_visible(False)
+
+    ax[2,7].set_visible(False)
+
     for i in range (0,3):
-        for j in range (0,7):
+        for j in range (0,8):
             ax[i,j].set_xticks([])
             ax[i,j].set_yticks([])
 
     #fig = plt.gcf()
     #fig.set_size_inches((8.5, 11), forward=False)
-    plt.tight_layout()
+    #plt.tight_layout()
     plt.show()
-    filepath = r'/home/nmitchell/GLCM/Images-Contrast/'
-    filepath += 'Contrast_' + str(isamp) + ".png"
-    fig.savefig(filepath)
-    print(filepath)
+#    filepath = r'/home/nmitchell/GLCM/Images-Contrast/'
+#    filepath += 'Contrast_' + str(isamp) + ".png"
+#    fig.savefig(filepath)
+#    print(filepath)
 #    fig.close()
