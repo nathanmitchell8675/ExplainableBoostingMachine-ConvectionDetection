@@ -2,27 +2,20 @@ import numpy as np
 import pandas as pd
 import pickle as pkl
 import cv2 as cv
+import os
 from skimage.feature import graycomatrix, graycoprops
+
 # Input number of convection files and tile size
-num= 204
-num1 = 0
-num2 = 204
-tile_size = 8
+num  = 7786
+tile_size = 4
 num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
 num_tiles = int(num_rows * num_cols)
 
-# Get sample image from Convection data
-x_train_vis = np.zeros((num,256,256,9), dtype = 'float32')
-x_train_ir  = np.zeros((num,64,64,9),   dtype = 'float32')
-y_train     = np.zeros((num,256,256),   dtype = 'float32')
-f = open(r'/mnt/data1/ylee/for_Jason/20190523_seg_mrms_256_comp_real.bin','rb')
-data = np.fromfile(f,dtype='float32')
-
-for j in range(num1, num2):
-        x_train_vis[j,:,:,:] = np.reshape(data[(j*(692224)):(j*(692224)+589824)],(256,256,9))
-        x_train_ir[j,:,:,:]  = np.reshape(data[(589824+j*(692224)):(589824+j*(692224)+36864)],(64,64,9))
-        y_train[j,:,:]       = np.reshape(data[(626688 + j*(692224)):(626688+j*(692224)+65536)], (256,256))
+#Load in the Images:
+filepath = r'/home/nmitchell/GLCM/all_images'
+with open(filepath, 'rb') as file:
+    images = pkl.load(file)
 
 og_image    = []
 true_color  = []
@@ -45,6 +38,19 @@ maxmin      = []
 maxmin_c    = []
 expanded_gt = []
 
+#flat_og     = []
+flat_conv   = []
+flat_glcm   = []
+flat_truth  = []
+#flat_min    = []
+#flat_mean   = []
+#flat_min_ap = []
+#flat_mean_ap= []
+flat_IR     = []
+#flat_IR_min = []
+#flat_IR_mean= []
+flat_expand = []
+
 metrics = {"Original Image": og_image, "Ground Truth": true_color, "Convolved Image": conv_image,
           "Infrared Image": IR_image, "Mean Brightness": means, "Min Brightness": mins, "Contrast Values": contrasts,
           "Convolved Contrast Values": contrasts_c, "Tile Mean Mask": mean_mask, "Tile Min Mask": min_mask,
@@ -52,159 +58,193 @@ metrics = {"Original Image": og_image, "Ground Truth": true_color, "Convolved Im
           "Min Mask Applied C": min_app_c, "IR Mask Applied Mean": ir_app_mean, "IR Mask Applied Min": ir_app_min,
           "Max/Min Contrast": maxmin, "Max/Min Contrast C": maxmin_c, "Expanded Ground Truth": expanded_gt}
 
-for n in range(num1, num2):
-    isamp = n
-    data  = x_train_vis[isamp,:,:,0]
-    data *= 100
-    data  = data.astype(np.uint8)
+#flat_metrics = {"Flat Original Image": flat_og, "Flat Convolved Image": flat_conv, "Flat GLCM": flat_glcm, "Flat Ground Truth": flat_truth,
+#                "Flat Min Mask": flat_min, "Flat Mean Mask": flat_mean, "Flat Applied Min Mask": flat_min_ap,
+#                "Flat Applied Mean Mask": flat_mean_ap, "Flat Infrared Image": flat_IR, "Flat IR Mask Applied Min": flat_IR_min,
+#                "Flat IR Mask Applied Mean": flat_IR_mean, "Flat Expanded Ground Truth": flat_expand}
 
-    data_truth  = y_train[isamp,:,:]
-    data_truth *= 100
-    data_truth  = data_truth.astype(np.uint8)
+flat_metrics = {"Flat Convolved Image": flat_conv, "Flat GLCM": flat_glcm, "Flat Ground Truth": flat_truth,
+                "Flat Expanded Ground Truth": flat_expand, "Flat Infrared Image": flat_IR}
 
-    data_IR  = x_train_ir[isamp,:,:,0]
+metrics_isamp = 0
 
-    data_truth_color = np.zeros(len(data_truth)*len(data_truth)*4)
-    data_truth_color = data_truth_color.reshape(len(data_truth),len(data_truth),4)
+for file_num in range(0, len(images["File Name"]) - 4):
+    num1 = 0
+    num2 = images["Data Length"][file_num]
 
-    expanded_gt = np.zeros((256,256,4))
+    for n in range(num1, num2):
+        isamp = n
+        data  = images["X Train Vis"][file_num][isamp,:,:,0]
+        data *= 100
+        data  = data.astype(np.uint8)
 
-    for i in range(len(data_truth)):
-        for j in range(len(data_truth)):
-            if(data_truth[i,j] == 100):
-                data_truth_color[i,j,:] = [1,0,0,1]
-            else:
-                data_truth_color[i,j,:] = [1,1,1,1]
-            if(data_truth[i,j] == 100):
-                if((i-7) < 0):
-                    a = 0
-                else:
-                    a = (i-7)
-                if((i+8) > len(data_truth)):
-                    b = len(data_truth)
-                else:
-                    b = (i+8)
-                if((j-7) < 0):
-                    c = 0
-                else:
-                    c = (j-7)
-                if((j+8) > len(data_truth)):
-                    d = len(data_truth)
-                else:
-                    d = (j+8)
-                expanded_gt[a:b, c:d, :] = [1,0,0,1]
+        data_truth  = images["Y Train"][file_num][isamp,:,:]
+        data_truth *= 100
+        data_truth  = data_truth.astype(np.uint8)
+        truth_small = cv.resize(data_truth, (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
 
-    kernel_9x9 = np.ones((9,9), np.float32)/81
-    convolve_data = cv.filter2D(src = data, ddepth = -1, kernel = kernel_9x9)
-    resized_IR = cv.resize(data_IR.astype('float32'), (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_CUBIC)
+        data_IR  = images["X Train IR"][file_num][isamp,:,:,0]
 
-    metrics['Original Image'].append(data)
-    metrics['Ground Truth'].append(data_truth_color)
-    metrics['Convolved Image'].append(convolve_data)
-    metrics['Infrared Image'].append(resized_IR)
-    metrics['Mean Brightness'].append(np.mean(data))
-    metrics['Min Brightness'].append(np.min(data))
-    metrics["Expanded Ground Truth"].append(expanded_gt)
+        data_truth_color = np.zeros(len(truth_small)*len(truth_small)*4)
+        data_truth_color = data_truth_color.reshape(len(truth_small),len(truth_small),4)
 
-    convolve_tiles    = []
+        expanded_gt = np.zeros((len(truth_small),len(truth_small),4))
 
-    mean_tiles        = []
-    min_tiles         = []
+        for i in range(len(truth_small)):
+            for j in range(len(truth_small)):
+                if(truth_small[i,j] == 100):
+                    data_truth_color[i,j,:] = [1,0,0,1]
 
-    glcms             = []
-    glcms_c           = []
+                    if((i-1) < 0):
+                        a = 0
+                    else:
+                        a = (i-1)
+                    if((i+2) > len(truth_small)):
+                        b = len(truth_small)
+                    else:
+                        b = (i+2)
+                    if((j-1) < 0):
+                        c = 0
+                    else:
+                        c = (j-1)
+                    if((j+2) > len(truth_small)):
+                        d = len(truth_small)
+                    else:
+                        d = (j+2)
+                    expanded_gt[a:b, c:d, :] = [1,0,0,1]
 
-    contrast_values   = []
-    contrast_values_c = []
+        kernel_9x9 = np.ones((9,9), np.float32)/81
+        convolve_data  = cv.filter2D(src = data, ddepth = -1, kernel = kernel_9x9)
+        convolve_small = cv.resize(convolve_data, (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
+        resized_IR = cv.resize(data_IR.astype('float32'), (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
 
-    for r in range(0, 256, tile_size):
-        for c in range(0, 256, tile_size):
-            tile          = data[r:r+tile_size, c:c+tile_size]
-            convolve_tile = convolve_data[r:r + tile_size, c:c + tile_size]
+        metrics['Original Image'].append(data)
+        metrics['Ground Truth'].append(data_truth_color)
+        metrics['Convolved Image'].append(convolve_data)
+        metrics['Infrared Image'].append(resized_IR)
+        metrics['Mean Brightness'].append(np.mean(data))
+        metrics['Min Brightness'].append(np.min(data))
+        metrics["Expanded Ground Truth"].append(expanded_gt)
 
-            convolve_tiles.append(convolve_tile)
+#       flat_metrics["Flat Original Image"].append(data.flatten())
+        flat_metrics["Flat Convolved Image"].append(convolve_small.flatten())
+        flat_metrics["Flat Ground Truth"].append((data_truth_color[:,:,3]).flatten())
+        flat_metrics["Flat Expanded Ground Truth"].append((expanded_gt[:,:,3]).flatten())
+        flat_metrics["Flat Infrared Image"].append(resized_IR.flatten())
 
-            distances = [1]
-            angles    = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+        convolve_tiles    = []
 
-            glcm0 = graycomatrix(tile, distances = distances, angles=[0],           levels=256, symmetric = False)
-            glcm1 = graycomatrix(tile, distances = distances, angles=[np.pi/4],     levels=256, symmetric = False)
-            glcm2 = graycomatrix(tile, distances = distances, angles=[np.pi/2],     levels=256, symmetric = False)
-            glcm3 = graycomatrix(tile, distances = distances, angles=[3 * np.pi/4], levels=256, symmetric = False)
-            glcm=(glcm0 + glcm1 + glcm2 + glcm3)/4 #compute mean matrix
-            glcms.append(glcm)
+        mean_tiles        = []
+        min_tiles         = []
 
-            #GLCM for Convolved Data
-            glcm0_c = graycomatrix(convolve_tile, distances = distances, angles = [0],           levels = 256, symmetric = False)
-            glcm1_c = graycomatrix(convolve_tile, distances = distances, angles = [np.pi/4],     levels = 256, symmetric = False)
-            glcm2_c = graycomatrix(convolve_tile, distances = distances, angles = [np.pi/2],     levels = 256, symmetric = False)
+        glcms             = []
+        glcms_c           = []
 
-            glcm3_c = graycomatrix(convolve_tile, distances = distances, angles = [3 * np.pi/4], levels = 256, symmetric = False)
-            glcm_c  = (glcm0_c + glcm1_c + glcm2_c + glcm3_c)/4 #compute mean matrix
-            glcms_c.append(glcm_c)
+        contrast_values   = []
+        contrast_values_c = []
 
-            contrast_values.append((float(graycoprops(glcm, 'contrast').ravel()[0])))
+        MMM = 0
 
-            contrast_values_c.append((float(graycoprops(glcm_c, 'contrast').ravel()[0])))
+        for r in range(0, 256, tile_size):
+            for c in range(0, 256, tile_size):
+                tile          = data[r:r+tile_size, c:c+tile_size]
+                convolve_tile = convolve_data[r:r + tile_size, c:c + tile_size]
 
-            mean_tiles.append(np.mean(convolve_tile))
-            min_tiles.append(np.min(convolve_tile))
+                convolve_tiles.append(convolve_tile)
 
-    metrics["Contrast Values"].append(contrast_values)
-    metrics["Convolved Contrast Values"].append(contrast_values_c)
+                distances = [1]
+                angles    = [0, np.pi/4, np.pi/2, 3*np.pi/4]
 
-    metrics["Max/Min Contrast"].append(np.array([max(contrast_values), min(contrast_values)]))
-    metrics["Max/Min Contrast C"].append(np.array([max(contrast_values_c), min(contrast_values_c)]))
+                glcm0 = graycomatrix(tile, distances = distances, angles=[0],           levels=256, symmetric = False)
+                glcm1 = graycomatrix(tile, distances = distances, angles=[np.pi/4],     levels=256, symmetric = False)
+                glcm2 = graycomatrix(tile, distances = distances, angles=[np.pi/2],     levels=256, symmetric = False)
+                glcm3 = graycomatrix(tile, distances = distances, angles=[3 * np.pi/4], levels=256, symmetric = False)
+                glcm=(glcm0 + glcm1 + glcm2 + glcm3)/4 #compute mean matrix
+                glcms.append(glcm)
 
-    max_con   = max(np.array(metrics["Max/Min Contrast"])[:,0])
-    min_con   = min(np.array(metrics["Max/Min Contrast"])[:,1])
-    max_con_c = max(np.array(metrics["Max/Min Contrast C"])[:,0])
-    min_con_c = min(np.array(metrics["Max/Min Contrast C"])[:,1])
+                #GLCM for Convolved Data
+                glcm0_c = graycomatrix(convolve_tile, distances = distances, angles = [0],           levels = 256, symmetric = False)
+                glcm1_c = graycomatrix(convolve_tile, distances = distances, angles = [np.pi/4],     levels = 256, symmetric = False)
+                glcm2_c = graycomatrix(convolve_tile, distances = distances, angles = [np.pi/2],     levels = 256, symmetric = False)
 
-    metrics["Tile Mean Mask"].append(np.array(mean_tiles).reshape((int(256/tile_size), int(256/tile_size))))
-    metrics["Tile Min Mask"].append(np.array(min_tiles).reshape((int(256/tile_size), int(256/tile_size))))
+                glcm3_c = graycomatrix(convolve_tile, distances = distances, angles = [3 * np.pi/4], levels = 256, symmetric = False)
+                glcm_c  = (glcm0_c + glcm1_c + glcm2_c + glcm3_c)/4 #compute mean matrix
+                glcms_c.append(glcm_c)
 
-for n in range(num1, num2):
-    isamp = n
+                contrast_values.append((float(graycoprops(glcm, 'contrast').ravel()[0])))
 
-    cvs  = []
-    cvsc = []
+                contrast_values_c.append((float(graycoprops(glcm_c, 'contrast').ravel()[0])))
 
-#    for val in metrics["Contrast Values"][isamp]:
-#        cvs.append((val - min_con)/(max_con - min_con))
+                mean_tiles.append(np.mean(convolve_tile))
+                min_tiles.append(np.min(convolve_tile))
 
-#    for val in metrics["Convolved Contrast Values"][isamp]:
+        metrics["Contrast Values"].append(contrast_values)
+        metrics["Convolved Contrast Values"].append(contrast_values_c)
 
-#        cvsc.append((val - min_con_c)/(max_con_c - min_con_c))
+        print("Sample Number: ", metrics_isamp)
 
-    for val in metrics["Contrast Values"][isamp]:
-        cvs.append(val/max(metrics["Contrast Values"][isamp]))
+        metrics["Max/Min Contrast"].append(np.array([max(contrast_values), min(contrast_values)]))
+        metrics["Max/Min Contrast C"].append(np.array([max(contrast_values_c), min(contrast_values_c)]))
 
-    for val in metrics["Convolved Contrast Values"][isamp]:
-        cvsc.append(val/max(metrics["Convolved Contrast Values"][isamp]))
+        max_con   = max(np.array(metrics["Max/Min Contrast"])[:,0])
+        min_con   = min(np.array(metrics["Max/Min Contrast"])[:,1])
+        max_con_c = max(np.array(metrics["Max/Min Contrast C"])[:,0])
+        min_con_c = min(np.array(metrics["Max/Min Contrast C"])[:,1])
 
-    metrics["Contrast Values"][isamp] = np.array(cvs).reshape(int(256/tile_size), int(256/tile_size))
-    metrics["Convolved Contrast Values"][isamp] = np.array(cvsc).reshape(int(256/tile_size), int(256/tile_size))
+        metrics["Tile Min Mask"].append(np.array(min_tiles).reshape((int(256/tile_size), int(256/tile_size))))
+        metrics["Tile Mean Mask"].append(np.array(mean_tiles).reshape((int(256/tile_size), int(256/tile_size))))
 
-   #mean_mask = (metrics["Tile Mean Mask"][isamp] >= np.mean(metrics["Mean Brightness"])*1.5).astype(int)
-    mean_mask = (metrics["Tile Mean Mask"][isamp] >= 55.6125).astype(int)
-    metrics["Tile Mean Mask"][isamp] = np.where(mean_mask, 1, np.nan)
+#       flat_metrics["Flat Min Mask"].append(metrics["Tile Min Mask"][isamp].flatten())
+#       flat_metrics["Flat Mean Mask"].append(metrics["Tile Mean Mask"][isamp].flatten())
 
-    metrics["Mean Mask Applied"].append(np.multiply(metrics["Contrast Values"][isamp], mean_mask))
-    metrics["Mean Mask Applied C"].append(np.multiply(metrics["Convolved Contrast Values"][isamp], mean_mask))
 
-   #min_mask  = (metrics["Tile Min Mask"][isamp] >= np.mean(metrics["Mean Brightness"])*1.5).astype(int)
-    min_mask  = (metrics['Tile Min Mask'][isamp] >= 55.6125).astype(int)
-    metrics["Tile Min Mask"][isamp]  = np.where(min_mask, 1, np.nan)
-    metrics["Min Mask Applied"].append(np.multiply(metrics["Contrast Values"][isamp], min_mask))
-    metrics["Min Mask Applied C"].append(np.multiply(metrics["Convolved Contrast Values"][isamp], min_mask))
+#    for n in range(num1, num2):
+#        isamp = n
 
-    ir_mask   = (metrics["Infrared Image"][isamp] <= 250).astype(int)
-    metrics["IR Mask"].append(np.where(ir_mask, 1, np.nan))
-    metrics["IR Mask Applied Mean"].append(np.multiply(metrics["Mean Mask Applied"][isamp], ir_mask))
-    metrics["IR Mask Applied Min"].append(np.multiply(metrics["Min Mask Applied"][isamp], ir_mask))
+        cvs  = []
+        cvsc = []
 
-filepath = r'/home/nmitchell/GLCM/'
-filepath+= 'metrics'
+        for val in metrics["Contrast Values"][metrics_isamp]:
+            cvs.append(val/max(metrics["Contrast Values"][metrics_isamp]))
+
+        for val in metrics["Convolved Contrast Values"][metrics_isamp]:
+            cvsc.append(val/max(metrics["Convolved Contrast Values"][metrics_isamp]))
+
+        metrics["Contrast Values"][metrics_isamp] = np.array(cvs).reshape(int(256/tile_size), int(256/tile_size))
+        metrics["Convolved Contrast Values"][metrics_isamp] = np.array(cvsc).reshape(int(256/tile_size), int(256/tile_size))
+
+        flat_metrics["Flat GLCM"].append(metrics["Contrast Values"][metrics_isamp].flatten())
+
+        #MIN MASK
+        min_mask  = (metrics['Tile Min Mask'][metrics_isamp] >= 55.6125).astype(int)
+        metrics["Tile Min Mask"][metrics_isamp]  = np.where(min_mask, 1, np.nan)
+        metrics["Min Mask Applied"].append(np.multiply(metrics["Contrast Values"][metrics_isamp], min_mask))
+        metrics["Min Mask Applied C"].append(np.multiply(metrics["Convolved Contrast Values"][metrics_isamp], min_mask))
+#       flat_metrics["Flat Applied Min Mask"].append(metrics["Min Mask Applied"][isamp].flatten())
+
+        #MEAN MASK
+        mean_mask = (metrics["Tile Mean Mask"][metrics_isamp] >= 55.6125).astype(int)
+        metrics["Tile Mean Mask"][metrics_isamp] = np.where(mean_mask, 1, np.nan)
+        metrics["Mean Mask Applied"].append(np.multiply(metrics["Contrast Values"][metrics_isamp], mean_mask))
+        metrics["Mean Mask Applied C"].append(np.multiply(metrics["Convolved Contrast Values"][metrics_isamp], mean_mask))
+#       flat_metrics["Flat Applied Mean Mask"].append(metrics["Mean Mask Applied"][isamp].flatten())
+
+        #IR MASK
+        ir_mask   = (metrics["Infrared Image"][metrics_isamp] <= 250).astype(int)
+        metrics["IR Mask"].append(np.where(ir_mask, 1, np.nan))
+        metrics["IR Mask Applied Min"].append(np.multiply(metrics["Min Mask Applied"][metrics_isamp], ir_mask))
+        metrics["IR Mask Applied Mean"].append(np.multiply(metrics["Mean Mask Applied"][metrics_isamp], ir_mask))
+#       flat_metrics["Flat IR Mask Applied Min"].append(metrics["IR Mask Applied Min"][isamp].flatten())
+#       flat_metrics["Flat IR Mask Applied Mean"].append(metrics["Ir Mask Applied Mean"][isamp].flatten())
+
+        metrics_isamp = metrics_isamp + 1
+
+filepath  = r'/home/nmitchell/GLCM/'
+flat_path = r'/home/nmitchell/GLCM/'
+
+filepath+= 'metrics_training'
+flat_path+= 'flat_metrics_training'
+
 pkl.dump(metrics, open(filepath, 'wb'))
+pkl.dump(flat_metrics, open(flat_path, 'wb'))
 
