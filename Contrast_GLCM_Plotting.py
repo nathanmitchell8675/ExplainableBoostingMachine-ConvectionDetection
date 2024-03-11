@@ -14,14 +14,14 @@ import xarray as xr
 
 #Load data
 
-metrics = xr.open_dataset('/home/nmitchell/GLCM/testing_data.nc')
+metrics = xr.open_dataset('/home/nmitchell/GLCM/training_data.nc')
 
 # Input number of convection files and tile size
 #Possible Examples: 16, 21, 25, 50, 55, 61
 #NEW: 10, *11*, 19
 num  = len(metrics.coords['Sample'])
 num1 = 0
-num2 = 1
+num2 = 10
 
 tile_size = 4
 num_rows  = int(256/tile_size)
