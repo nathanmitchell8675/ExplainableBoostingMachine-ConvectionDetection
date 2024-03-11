@@ -165,6 +165,6 @@ for isamp in range(num1,num2):
     filepath += 'InitialLogReg__' + str(isamp) + ".png"
     fig.savefig(filepath)
     print(filepath)
-    fig.close()
+    plt.close()
 
 
