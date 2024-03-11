@@ -28,7 +28,7 @@ metrics_isamp = 0
 num1 = 0
 num2 = images.x_train_vis.sel(Sample = 20).shape[0]
 
-for n in range(num1, 10):
+for n in range(num1, num2):
     print("Sample Number: ", metrics_isamp)
     metrics_isamp = metrics_isamp + 1
 
@@ -43,18 +43,14 @@ for n in range(num1, 10):
     data_truth  = data_truth.astype(np.uint8)
     truth_small = cv.resize(data_truth, (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
 
-    data_IR  = np.array(images.x_train_ir.sel(Sample = 20)[isamp,:,:,0])
+    data_IR = np.array(images.x_train_ir.sel(Sample = 20)[isamp,:,:,0])
 
-    data_truth_color = np.zeros(len(truth_small)*len(truth_small)*4)
-    data_truth_color = data_truth_color.reshape(len(truth_small),len(truth_small),4)
-
-    expanded_gt = np.zeros((len(truth_small),len(truth_small),4))
+    expanded_gt = np.zeros((len(truth_small),len(truth_small)))
 
     for i in range(len(truth_small)):
         for j in range(len(truth_small)):
             if(truth_small[i,j] == 100):
-                data_truth_color[i,j,:] = [1,0,0,1]
-
+                truth_small[i,j] = 1
                 if((i-1) < 0):
                     a = 0
                 else:
@@ -71,7 +67,9 @@ for n in range(num1, 10):
                     d = len(truth_small)
                 else:
                     d = (j+2)
-                expanded_gt[a:b, c:d, :] = [1,0,0,1]
+                expanded_gt[a:b, c:d] = 1
+            else:
+                truth_small[i,j] = 0
 
     kernel_9x9     = np.ones((9,9), np.float32)/81
     convolve_data  = cv.filter2D(src = data, ddepth = -1, kernel = kernel_9x9)
@@ -82,8 +80,8 @@ for n in range(num1, 10):
     data_flat        = np.expand_dims(data.flatten(), 0)
     original_image   = xr.DataArray(data_flat, dims = ["Sample", "Length_256"], coords = {'Sample': np.ones(data_flat.shape[0])*isamp})
 
-    data_truth_color = np.expand_dims(data_truth_color.flatten(), 0)
-    ground_truth     = xr.DataArray(data_truth_color, dims = ["Sample", "Length_16384"], coords = {'Sample': np.ones(data_truth_color.shape[0])*isamp})
+    truth_small      = np.expand_dims(truth_small.flatten(), 0)
+    ground_truth     = xr.DataArray(truth_small, dims = ["Sample", "Length_64"], coords = {'Sample': np.ones(truth_small.shape[0])*isamp})
 
     data_convolved   = np.expand_dims(convolve_small.flatten(), 0)
     convolved_im     = xr.DataArray(data_convolved, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(data_convolved.shape[0])*isamp})
@@ -92,7 +90,7 @@ for n in range(num1, 10):
     infrared_image   = xr.DataArray(resized_IR, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(resized_IR.shape[0])*isamp})
 
     expanded_gt      = np.expand_dims(expanded_gt.flatten(), 0)
-    expanded_truth   = xr.DataArray(expanded_gt, dims = ["Sample", "Length_16384"], coords = {"Sample": np.ones(expanded_gt.shape[0])*isamp})
+    expanded_truth   = xr.DataArray(expanded_gt, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(expanded_gt.shape[0])*isamp})
 
     metrics['Mean Brightness'].append(np.mean(data))
     metrics['Min Brightness'].append(np.min(data))
