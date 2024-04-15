@@ -39,8 +39,8 @@ gt_cm  = mpl.colors.LinearSegmentedColormap.from_list(" ", ["white", "red"])
 
 #505, 509
 
-num1 = 13
-num2 = 15
+num1 = 1
+num2 = 150
 
 for isamp in range(num1,num2):
     #Pull the Ground Truth, the Expanded Ground Truth, the Convolved Image, the Original GLCM Tiles,
@@ -168,4 +168,10 @@ for isamp in range(num1,num2):
     fig.set_size_inches((8.5, 11), forward=False)
     plt.subplots_adjust(left = 0.012, bottom = 0.045, right = 0.979, top = 0.938, wspace = 0, hspace = 0.245)
     plt.show()
+
+    filepath = r'/home/nmitchell/GLCM/EBM-no-interaction/'
+    filepath += 'EBM_no_interaction_' + str(isamp) + ".png"
+    fig.savefig(filepath)
+    print(filepath)
+    plt.close()
 
