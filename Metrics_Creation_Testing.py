@@ -180,23 +180,37 @@ for n in range(num1, num2):
     mean_app_c  = xr.DataArray(mean_appc, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(mean_appc.shape[0])*isamp})
 
     #IR MASK
-    ir_values   = (np.array((resized_IR <= 250).astype(int))).flatten()
+    ir_vals_blw = (np.array((resized_IR <= 250).astype(int))).flatten()
+    ir_vals_abv = (np.array((resized_IR > 250).astype(int))).flatten()
 
-    ir_msk      = np.expand_dims(np.where(ir_values, 1, np.nan), 0)
-    ir_mask     = xr.DataArray(ir_msk, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_msk.shape[0])*isamp})
+    ir_msk_blw  = np.expand_dims(np.where(ir_vals_blw, 1, np.nan), 0)
+    ir_mk_abv   = np.expand_dims(np.where(ir_vals_abv, 1, np.nan), 0)
+    ir_mask     = xr.DataArray(ir_msk_blw, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_msk_blw.shape[0])*metrics_isamp})
 
-    ir_min      = np.multiply(min_app_, ir_values)
-    ir_app_min  = xr.DataArray(ir_min, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_min.shape[0])*isamp})
+    ir_blw_     = np.multiply(ir_vals_blw, contrast_values)
+    ir_abv_     = np.multiply(ir_vals_abv, contrast_values)
+    ir_app_blw  = xr.DataArray(ir_blw_, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_blw_.shape[0])*metrics_isamp})
+    ir_app_abv  = xr.DataArray(ir_abv_, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_abv_.shape[0])*metrics_isamp})
 
-    ir_mean     = np.multiply(mean_app_, ir_values)
-    ir_app_mean = xr.DataArray(ir_mean, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_mean.shape[0])*isamp})
+    below_min   = np.multiply(min_app_, ir_vals_blw)
+    above_min   = np.multiply(min_app_, ir_vals_abv)
+    ir_app_min  = xr.DataArray(below_min, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(below_min.shape[0])*metrics_isamp})
+    ir_abv_min  = xr.DataArray(above_min, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(above_min.shape[0])*metrics_isamp})
+
+    below_mean  = np.multiply(mean_app_, ir_vals_blw)
+    above_mean  = np.multiply(mean_app_, ir_vals_abv)
+    ir_app_mean = xr.DataArray(below_mean, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(below_mean.shape[0])*metrics_isamp})
+    ir_abv_mean = xr.DataArray(above_mean, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(above_mean.shape[0])*metrics_isamp})
 
     sample = xr.Dataset(data_vars = {"Original_Image": original_image, "Ground_Truth": ground_truth, "Convolved_Image": convolved_im,
                                      "Infrared_Image": infrared_image, "Expanded_Ground_Truth": expanded_truth, "Original_GLCM": GLCMs,
                                      "Convolved_GLCM": GLCMs_c, "Min_Mask": min_mask, "Min_Mask_Applied": min_app,
                                      "Min_Mask_Applied_Convolved_Image": min_app_c, "Mean_Mask": mean_mask, "Mean_Mask_Applied": mean_app_c,
                                      "Mean_Mask_Applied_Convolved_Image": mean_app_c, "Infrared_Image_Mask": ir_mask,
-                                     "Infrared_Mask_Applied_to_Min_Mask": ir_app_min, "Infrared_Mask_Applied_to_Mean_Mask": ir_app_mean})
+                                     "Infrared_Mask_Applied_to_Min_Mask": ir_app_min, "Infrared_Mask_Applied_to_Mean_Mask": ir_app_mean,
+                                     "Above_IR_Mask_Applied_to_Min_Mask": ir_abv_min, "Above_IR_Mask_Applied_to_Mean_Mask": ir_abv_mean,
+                                     "Above_IR_Mask_Applied_to_OG_GLCM": ir_app_abv, "Below_IR_Mask_Applied_to_OG_GLCM": ir_app_blw})
+
 
     samples.append(sample)
 
