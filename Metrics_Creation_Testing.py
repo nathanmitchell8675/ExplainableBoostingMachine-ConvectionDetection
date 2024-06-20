@@ -45,29 +45,29 @@ for n in range(num1, num2):
 
     data_IR = np.array(images.x_train_ir.sel(Sample = 20)[isamp,:,:,0])
 
-    expanded_gt = np.zeros((len(truth_small),len(truth_small)))
+#    expanded_gt = np.zeros((len(truth_small),len(truth_small)))
 
     for i in range(len(truth_small)):
         for j in range(len(truth_small)):
             if(truth_small[i,j] == 100):
                 truth_small[i,j] = 1
-                if((i-1) < 0):
-                    a = 0
-                else:
-                    a = (i-1)
-                if((i+2) > len(truth_small)):
-                    b = len(truth_small)
-                else:
-                    b = (i+2)
-                if((j-1) < 0):
-                    c = 0
-                else:
-                    c = (j-1)
-                if((j+2) > len(truth_small)):
-                    d = len(truth_small)
-                else:
-                    d = (j+2)
-                expanded_gt[a:b, c:d] = 1
+#                if((i-1) < 0):
+#                    a = 0
+#                else:
+#                    a = (i-1)
+#                if((i+2) > len(truth_small)):
+#                    b = len(truth_small)
+#                else:
+#                    b = (i+2)
+#                if((j-1) < 0):
+#                    c = 0
+#                else:
+#                    c = (j-1)
+#                if((j+2) > len(truth_small)):
+#                    d = len(truth_small)
+#                else:
+#                    d = (j+2)
+#                expanded_gt[a:b, c:d] = 1
             else:
                 truth_small[i,j] = 0
 
@@ -89,8 +89,8 @@ for n in range(num1, num2):
     resized_IR       = np.expand_dims(resized_IR.flatten(), 0)
     infrared_image   = xr.DataArray(resized_IR, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(resized_IR.shape[0])*isamp})
 
-    expanded_gt      = np.expand_dims(expanded_gt.flatten(), 0)
-    expanded_truth   = xr.DataArray(expanded_gt, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(expanded_gt.shape[0])*isamp})
+#    expanded_gt      = np.expand_dims(expanded_gt.flatten(), 0)
+#    expanded_truth   = xr.DataArray(expanded_gt, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(expanded_gt.shape[0])*isamp})
 
     metrics['Mean Brightness'].append(np.mean(data))
     metrics['Min Brightness'].append(np.min(data))
@@ -202,15 +202,19 @@ for n in range(num1, num2):
     ir_app_mean = xr.DataArray(below_mean, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(below_mean.shape[0])*metrics_isamp})
     ir_abv_mean = xr.DataArray(above_mean, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(above_mean.shape[0])*metrics_isamp})
 
+    #MRMS MASK
+    mrms_blw  = np.multiply(ir_vals_blw, truth_small)
+    mrms_mask = xr.DataArray(mrms_blw, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(mrms_blw.shape[0])*metrics_isamp})
+
+
     sample = xr.Dataset(data_vars = {"Original_Image": original_image, "Ground_Truth": ground_truth, "Convolved_Image": convolved_im,
-                                     "Infrared_Image": infrared_image, "Expanded_Ground_Truth": expanded_truth, "Original_GLCM": GLCMs,
+                                     "Infrared_Image": infrared_image, "Masked_Truth": mrms_mask, "Original_GLCM": GLCMs, #"Expanded_Ground_Truth": expanded_truth,
                                      "Convolved_GLCM": GLCMs_c, "Min_Mask": min_mask, "Min_Mask_Applied": min_app,
                                      "Min_Mask_Applied_Convolved_Image": min_app_c, "Mean_Mask": mean_mask, "Mean_Mask_Applied": mean_app_c,
                                      "Mean_Mask_Applied_Convolved_Image": mean_app_c, "Infrared_Image_Mask": ir_mask,
                                      "Infrared_Mask_Applied_to_Min_Mask": ir_app_min, "Infrared_Mask_Applied_to_Mean_Mask": ir_app_mean,
                                      "Above_IR_Mask_Applied_to_Min_Mask": ir_abv_min, "Above_IR_Mask_Applied_to_Mean_Mask": ir_abv_mean,
                                      "Above_IR_Mask_Applied_to_OG_GLCM": ir_app_abv, "Below_IR_Mask_Applied_to_OG_GLCM": ir_app_blw})
-
 
     samples.append(sample)
 
