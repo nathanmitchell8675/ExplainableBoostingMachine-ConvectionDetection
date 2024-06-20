@@ -20,8 +20,8 @@ metrics = xr.open_dataset('/home/nmitchell/GLCM/training_data.nc')
 #Possible Examples: 16, 21, 25, 50, 55, 61
 #NEW: 10, *11*, 19
 num  = len(metrics.coords['Sample'])
-num1 = 0
-num2 = 10
+num1 = 11
+num2 = 12
 
 tile_size = 4
 num_rows  = int(256/tile_size)
@@ -82,6 +82,26 @@ for n in range(num1, num2):
     mean_app_c    = np.array(metrics.Min_Mask_Applied_Convolved_Image.sel(Sample = isamp)).reshape(mask_length, mask_length)
 
     ones = np.ones((int(256/tile_size), int(256/tile_size)))
+
+    #################
+    fig, ax = plt.subplots(1,4)
+    ax[0].imshow(og_image, cmap = 'gray', extent = (0,256,0,256), origin = 'lower')
+    ax[0].imshow(ones, alpha = og_GLCM, cmap = red_cm, origin = 'lower', extent = (0,256,0,256))
+
+    mask = np.where(ir_image >= 250,1,0)
+    mask2 = np.where(ir_image <= 250,1,np.nan)
+    mask3 = np.where(ir_image <= 245,1,np.nan)
+
+    ax[1].imshow(ones, alpha = og_GLCM*mask, origin = 'lower', cmap = red_cm)
+
+    ax[2].imshow(mask2, origin = 'lower', cmap = red_cm)
+
+    ax[3].imshow(mask3, origin = 'lower', cmap = red_cm)
+
+    plt.show()
+    break
+    #################
+
 
     fig, ax = plt.subplots(3,7)
 
