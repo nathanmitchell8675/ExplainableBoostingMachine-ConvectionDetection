@@ -182,7 +182,7 @@ def get_statistics():
     print("False Positives: ", fp)
     print("False Negatives: ", fn)
 
-get_statistics()
+#get_statistics()
 
 #Create useful colormaps to be used while plotting
 ones = np.ones((int(256/tile_size), int(254/tile_size)))
