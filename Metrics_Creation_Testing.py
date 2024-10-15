@@ -5,6 +5,15 @@ import cv2 as cv
 import os
 from skimage.feature import graycomatrix, graycoprops
 import xarray as xr
+#
+from scipy.ndimage import uniform_filter
+from skimage.restoration import inpaint
+from scipy.ndimage import laplace
+from scipy.ndimage import sobel
+import copy
+from collections import defaultdict
+from itertools import groupby
+
 
 # Input number of convection files and tile size
 num  = 7786
@@ -12,6 +21,61 @@ tile_size = 4
 num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
 num_tiles = int(num_rows * num_cols)
+
+
+def fix_striping(data,a,b,c,d,e,first_pass):
+    amap = data
+    sav = copy.deepcopy(amap)
+    amap = (laplace(amap, mode='mirror')).astype(int)
+    amap = np.where(amap >= 200, amap - 256, amap)
+    dx = sobel(amap, axis=0, mode='mirror')
+    dy = sobel(amap, axis=1, mode='mirror')
+    amap = np.degrees(np.arctan2(dy,dx))
+    amap = (abs(amap) < 45).astype(int)
+
+    ny,nx = amap.shape
+    wx = 2.5
+    fmap = np.empty(amap.shape)
+    fmap.fill(-1)
+    for iy,ix in np.ndindex(amap.shape):
+        i1 = ix-(wx/2) if (ix-(wx/2) >= 0) else 0
+        i2 = ix+(wx/2) if (ix+(wx/2) < nx) else nx-1
+        section = amap[iy,int(i1):int(i2+1)]
+        frac = np.sum(section)/len(section)
+        if frac >= 0.99:
+            fmap[iy,ix] = 1
+            if (iy>d): fmap[iy-(a):iy+(a),     ix-(d):ix+(e)] = 1
+            if (iy<(ny-a)): fmap[iy-(b):iy+(c),ix-(d):ix+(e)] = 1
+
+    amap = np.where(fmap == 1, 1, sav)
+    amap = np.expand_dims(amap, axis=2)
+    smap = inpaint.inpaint_biharmonic(amap, (fmap==1), channel_axis=-1)
+    smap = np.squeeze(smap)
+
+    test_list = np.squeeze(np.where(amap == 1, 1, 0))
+    max_lengths = np.zeros(256)
+    max_percent = np.zeros(256)
+    for i in range(test_list.shape[0]):
+        max_percent[i] = np.sum(test_list[i,:])/256
+        counter = defaultdict(list)
+        new_list = test_list[i]
+        if(np.sum(new_list) == 0):
+            max_lengths[i] = 0
+        else:
+            for key, val in groupby(new_list, lambda ele: "one" if ele > 0 else "zero"):
+                counter[key].append(len(list(val)))
+            max_lengths[i] = max(counter['one'])
+
+    max_l = max(max_lengths.flatten())
+    max_p = max(max_percent.flatten())
+
+    if (first_pass):
+        return max_l, max_p
+    else:
+        interval_min = 0
+        interval_max = 255
+        scaled_mat = (smap - np.min(smap)) / (np.max(smap) - np.min(smap)) * (interval_max - interval_min) + interval_min
+        return cv.blur(scaled_mat.astype(int), (3,3))
 
 #Load in the Images:
 images = xr.open_dataset('/home/nmitchell/GLCM/all_images.nc')
@@ -28,90 +92,68 @@ metrics_isamp = 0
 num1 = 0
 num2 = images.x_train_vis.sel(Sample = 20).shape[0]
 
-for n in range(num1, num2):
-    print("Sample Number: ", metrics_isamp)
-    metrics_isamp = metrics_isamp + 1
+file_num = 20
 
+num_altered = 0
+
+for n in range(num1, num2):
     isamp = n
 
-    data  = np.array(images.x_train_vis.sel(Sample = 20)[isamp,:,:,0])
+    print("Sample Number: ", metrics_isamp)
+
+    data  = np.array(images.x_train_vis.sel(Sample = file_num)[isamp,:,:,0])
     data *= 100
     data  = data.astype(np.uint8)
 
-    data_truth  = np.array(images.y_train.sel(Sample = 20)[isamp,:,:])
+    if(np.sum(np.isnan(data)) > 0):
+        continue
+
+    data_truth  = np.array(images.y_train.sel(Sample = file_num)[isamp,:,:])
     data_truth *= 100
     data_truth  = data_truth.astype(np.uint8)
     truth_small = cv.resize(data_truth, (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
 
-    data_IR = np.array(images.x_train_ir.sel(Sample = 20)[isamp,:,:,0])
+    data_IR  = np.array(images.x_train_ir.sel(Sample = file_num)[isamp,:,:,0])
 
-#    expanded_gt = np.zeros((len(truth_small),len(truth_small)))
-
-    for i in range(len(truth_small)):
-        for j in range(len(truth_small)):
-            if(truth_small[i,j] == 100):
-                truth_small[i,j] = 1
-#                if((i-1) < 0):
-#                    a = 0
-#                else:
-#                    a = (i-1)
-#                if((i+2) > len(truth_small)):
-#                    b = len(truth_small)
-#                else:
-#                    b = (i+2)
-#                if((j-1) < 0):
-#                    c = 0
-#                else:
-#                    c = (j-1)
-#                if((j+2) > len(truth_small)):
-#                    d = len(truth_small)
-#                else:
-#                    d = (j+2)
-#                expanded_gt[a:b, c:d] = 1
-            else:
-                truth_small[i,j] = 0
+    #Gets rid of unnecessary values within the MRMS data
+    data_truth  = np.where(data_truth == 100, 1, 0)
+    truth_small = np.where(truth_small == 100, 1, 0)
 
     kernel_9x9     = np.ones((9,9), np.float32)/81
     convolve_data  = cv.filter2D(src = data, ddepth = -1, kernel = kernel_9x9)
     convolve_small = cv.resize(convolve_data, (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
     resized_IR     = cv.resize(data_IR.astype('float32'), (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
 
+    #Determine if there is any striping present
+#    max_l, max_p = fix_striping(data,1,-2,2,0,1,True)
+#    if((max_l >= 15) | (max_p >= .25)):
+    data = fix_striping(data,3,3,3,2,2,False)
+    num_altered+=1
+
     #Put image data into the xarray format
     data_flat        = np.expand_dims(data.flatten(), 0)
-    original_image   = xr.DataArray(data_flat, dims = ["Sample", "Length_256"], coords = {'Sample': np.ones(data_flat.shape[0])*isamp})
+    original_image   = xr.DataArray(data_flat, dims = ["Sample", "Length_256"], coords = {'Sample': np.ones(data_flat.shape[0])*metrics_isamp})
 
     truth_small      = np.expand_dims(truth_small.flatten(), 0)
-    ground_truth     = xr.DataArray(truth_small, dims = ["Sample", "Length_64"], coords = {'Sample': np.ones(truth_small.shape[0])*isamp})
+    ground_truth     = xr.DataArray(truth_small, dims = ["Sample", "Length_64"], coords = {'Sample': np.ones(truth_small.shape[0])*metrics_isamp})
 
     data_convolved   = np.expand_dims(convolve_small.flatten(), 0)
-    convolved_im     = xr.DataArray(data_convolved, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(data_convolved.shape[0])*isamp})
+    convolved_im     = xr.DataArray(data_convolved, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(data_convolved.shape[0])*metrics_isamp})
 
     resized_IR       = np.expand_dims(resized_IR.flatten(), 0)
-    infrared_image   = xr.DataArray(resized_IR, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(resized_IR.shape[0])*isamp})
+    infrared_image   = xr.DataArray(resized_IR, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(resized_IR.shape[0])*metrics_isamp})
 
-#    expanded_gt      = np.expand_dims(expanded_gt.flatten(), 0)
-#    expanded_truth   = xr.DataArray(expanded_gt, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(expanded_gt.shape[0])*isamp})
+    full_truth       = np.expand_dims(data_truth.flatten(), 0)
+    full_sized_mrms  = xr.DataArray(full_truth, dims = ["Sample", "Length_256"], coords = {"Sample": np.ones(full_truth.shape[0])*metrics_isamp})
 
-    metrics['Mean Brightness'].append(np.mean(data))
-    metrics['Min Brightness'].append(np.min(data))
+    glcms            = []
+    contrast_values  = []
 
-    convolve_tiles    = []
-
-    mean_tiles        = []
-    min_tiles         = []
-
-    glcms             = []
-    glcms_c           = []
-
-    contrast_values   = []
-    contrast_values_c = []
+    MMM = 0
 
     for r in range(0, 256, tile_size):
         for c in range(0, 256, tile_size):
             tile          = data[r:r+tile_size, c:c+tile_size]
-            convolve_tile = convolve_data[r:r + tile_size, c:c + tile_size]
-
-            convolve_tiles.append(convolve_tile)
 
             distances = [1]
             angles    = [0, np.pi/4, np.pi/2, 3*np.pi/4]
@@ -123,21 +165,7 @@ for n in range(num1, num2):
             glcm=(glcm0 + glcm1 + glcm2 + glcm3)/4 #compute mean matrix
             glcms.append(glcm)
 
-            #GLCM for Convolved Data
-            glcm0_c = graycomatrix(convolve_tile, distances = distances, angles = [0],           levels = 256, symmetric = False)
-            glcm1_c = graycomatrix(convolve_tile, distances = distances, angles = [np.pi/4],     levels = 256, symmetric = False)
-            glcm2_c = graycomatrix(convolve_tile, distances = distances, angles = [np.pi/2],     levels = 256, symmetric = False)
-
-            glcm3_c = graycomatrix(convolve_tile, distances = distances, angles = [3 * np.pi/4], levels = 256, symmetric = False)
-            glcm_c  = (glcm0_c + glcm1_c + glcm2_c + glcm3_c)/4 #compute mean matrix
-            glcms_c.append(glcm_c)
-
             contrast_values.append((float(graycoprops(glcm, 'contrast').ravel()[0])))
-
-            contrast_values_c.append((float(graycoprops(glcm_c, 'contrast').ravel()[0])))
-
-            mean_tiles.append(np.mean(convolve_tile))
-            min_tiles.append(np.min(convolve_tile))
 
     #Normalize Contrast Values
     cvs = []
@@ -145,39 +173,7 @@ for n in range(num1, num2):
         cvs.append(val/max(contrast_values))
 
     contrast_values = np.expand_dims(np.array(cvs), 0)
-    GLCMs           = xr.DataArray(contrast_values, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(contrast_values.shape[0])*isamp})
-
-    #Normalize Convolved Contrast Values
-    cvsc = []
-    for val in contrast_values_c:
-         cvsc.append(val/max(contrast_values_c))
-
-    contrast_vals_c = np.expand_dims(np.array(cvsc), 0)
-    GLCMs_c         = xr.DataArray(contrast_vals_c, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(contrast_vals_c.shape[0])*isamp})
-
-    #MIN MASK
-    min_vals    = ((np.array(min_tiles).reshape((int(256/tile_size), int(256/tile_size))) >= 55.6125).astype(int)).flatten()
-
-    min_msk     = np.expand_dims(np.where(min_vals, 1, np.nan), 0)
-    min_mask    = xr.DataArray(min_msk, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(min_msk.shape[0])*isamp})
-
-    min_app_    = np.multiply(min_vals, contrast_values)
-    min_app     = xr.DataArray(min_app_, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(min_app_.shape[0])*isamp})
-
-    min_appc    = np.multiply(min_vals, contrast_vals_c)
-    min_app_c   = xr.DataArray(min_appc, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(min_appc.shape[0])*isamp})
-
-    #MEAN MASK
-    mean_vals   = ((np.array(mean_tiles).reshape((int(256/tile_size)), (int(256/tile_size))) >= 55.6125).astype(int)).flatten()
-
-    mean_msk    = np.expand_dims(np.where(mean_vals, 1, np.nan), 0)
-    mean_mask   = xr.DataArray(mean_msk, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(mean_msk.shape[0])*isamp})
-
-    mean_app_   = np.multiply(mean_vals, contrast_values)
-    mean_app    = xr.DataArray(mean_app_, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(mean_app_.shape[0])*isamp})
-
-    mean_appc   = np.multiply(mean_vals, contrast_vals_c)
-    mean_app_c  = xr.DataArray(mean_appc, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(mean_appc.shape[0])*isamp})
+    GLCMs           = xr.DataArray(contrast_values, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(contrast_values.shape[0])*metrics_isamp})
 
     #IR MASK
     ir_vals_blw = (np.array((resized_IR <= 250).astype(int))).flatten()
@@ -192,32 +188,21 @@ for n in range(num1, num2):
     ir_app_blw  = xr.DataArray(ir_blw_, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_blw_.shape[0])*metrics_isamp})
     ir_app_abv  = xr.DataArray(ir_abv_, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(ir_abv_.shape[0])*metrics_isamp})
 
-    below_min   = np.multiply(min_app_, ir_vals_blw)
-    above_min   = np.multiply(min_app_, ir_vals_abv)
-    ir_app_min  = xr.DataArray(below_min, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(below_min.shape[0])*metrics_isamp})
-    ir_abv_min  = xr.DataArray(above_min, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(above_min.shape[0])*metrics_isamp})
-
-    below_mean  = np.multiply(mean_app_, ir_vals_blw)
-    above_mean  = np.multiply(mean_app_, ir_vals_abv)
-    ir_app_mean = xr.DataArray(below_mean, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(below_mean.shape[0])*metrics_isamp})
-    ir_abv_mean = xr.DataArray(above_mean, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(above_mean.shape[0])*metrics_isamp})
-
     #MRMS MASK
     mrms_blw  = np.multiply(ir_vals_blw, truth_small)
     mrms_mask = xr.DataArray(mrms_blw, dims = ["Sample", "Length_64"], coords = {"Sample": np.ones(mrms_blw.shape[0])*metrics_isamp})
 
+    metrics_isamp = metrics_isamp + 1
 
     sample = xr.Dataset(data_vars = {"Original_Image": original_image, "Ground_Truth": ground_truth, "Convolved_Image": convolved_im,
-                                     "Infrared_Image": infrared_image, "Masked_Truth": mrms_mask, "Original_GLCM": GLCMs, #"Expanded_Ground_Truth": expanded_truth,
-                                     "Convolved_GLCM": GLCMs_c, "Min_Mask": min_mask, "Min_Mask_Applied": min_app,
-                                     "Min_Mask_Applied_Convolved_Image": min_app_c, "Mean_Mask": mean_mask, "Mean_Mask_Applied": mean_app_c,
-                                     "Mean_Mask_Applied_Convolved_Image": mean_app_c, "Infrared_Image_Mask": ir_mask,
-                                     "Infrared_Mask_Applied_to_Min_Mask": ir_app_min, "Infrared_Mask_Applied_to_Mean_Mask": ir_app_mean,
-                                     "Above_IR_Mask_Applied_to_Min_Mask": ir_abv_min, "Above_IR_Mask_Applied_to_Mean_Mask": ir_abv_mean,
-                                     "Above_IR_Mask_Applied_to_OG_GLCM": ir_app_abv, "Below_IR_Mask_Applied_to_OG_GLCM": ir_app_blw})
+                                     "Infrared_Image": infrared_image, "Masked_Truth": mrms_mask, "Original_GLCM": GLCMs, #"Expanded_Ground_Truth":
+                                     "Above_IR_Mask_Applied_to_OG_GLCM": ir_app_abv, "Below_IR_Mask_Applied_to_OG_GLCM": ir_app_blw,
+                                     "Full_Sized_MRMS": full_sized_mrms})
 
     samples.append(sample)
 
+print("Num Altered: ", num_altered)
+
 testing_data = xr.concat(samples, dim = "Sample")
 
-testing_data.to_netcdf('/home/nmitchell/GLCM/testing_data.nc')
+testing_data.to_netcdf('/home/nmitchell/GLCM/testing_data_fixStripes_all.nc')

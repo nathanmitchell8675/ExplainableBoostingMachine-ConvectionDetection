@@ -34,7 +34,7 @@ warnings.filterwarnings('ignore')
 tile_size = 4
 
 #Load in the data
-validation_data = xr.open_dataset('/home/nmitchell/GLCM/training_data_fixStripes_all.nc')
+validation_data = xr.open_dataset('/home/nmitchell/GLCM/validation_data.nc')
 
 #Filepath for the EBM
 filepath = r'/home/nmitchell/GLCM/models/EBM_model_ADASYN'
@@ -182,7 +182,7 @@ def get_statistics():
     print("False Positives: ", fp)
     print("False Negatives: ", fn)
 
-get_statistics()
+#get_statistics()
 
 #Create useful colormaps to be used while plotting
 ones = np.ones((int(256/tile_size), int(254/tile_size)))
@@ -207,7 +207,10 @@ o_cm = mpl.colors.LinearSegmentedColormap.from_list(" ", ["orange", "black"])
 
 #examples = [350,540,610,645,1429,1470,1511,1551,1591,1674,1716,1758,1800,1959,2001,2043,2085,2092,2134,2176,2218,2239,2281,2323,2324,2360,2365,2380,2402,2403,2404,3017,3044,3071,4080,4081,4099,4102,4466,4795,4826,4857,4887,4917,5041]
 
-examples = [1150,731,3337]
+#examples = [1150,731,3337]
+
+#EXAMPLES WITH WORST STRIPING IN THE VALIDATION SET
+examples = [16,23,62,276,307,338,374,405,442,672]
 
 #for isamp in range(num1,num2):
 for isamp in examples:
@@ -327,6 +330,14 @@ for isamp in examples:
 #    int_shape(5)
 #    continue
 
+    def og_im():
+        plt.imshow(original_image, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
+        plt.subplots_adjust(left = 0, bottom = 0.01, right = 1, top = .99, wspace = 0, hspace = 0)
+        plt.show()
+
+#    og_im()
+#    continue
+
     def slim_plotting():
         fig, ax = plt.subplots(1,3)
         for i in range(3):
@@ -353,7 +364,7 @@ for isamp in examples:
         ax[2].set_title("Predicted Convection")
 
 
-        print(isamp)
+#        print(isamp)
 #        print(np.sum(masked_mrms))
 #        print(np.sum(pred_convection))
 #        print("Sample: ", isamp)
@@ -361,8 +372,8 @@ for isamp in examples:
 
         plt.show()
 
-    slim_plotting()
-    continue
+#    slim_plotting()
+#    continue
 
     #########################################
 
