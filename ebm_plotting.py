@@ -34,7 +34,7 @@ warnings.filterwarnings('ignore')
 tile_size = 4
 
 #Load in the data
-validation_data = xr.open_dataset('/home/nmitchell/GLCM/validation_data.nc')
+validation_data = xr.open_dataset('/home/nmitchell/GLCM/testing_data.nc')
 
 #Filepath for the EBM
 filepath = r'/home/nmitchell/GLCM/models/EBM_model_ADASYN'
@@ -90,7 +90,6 @@ def alter_model():
     #For setting the bounds to 0 later on, need the name and which positions to switch
     edited_shape_fxs = np.append(edited_shape_fxs, ["brightness"])
     edit_range = np.hstack((edit_range, np.array([0, np.sum(xvals <= 29)])))
-
 
 #    ebm.explain_global().data(1)['scores'][0] = 0.25
 
@@ -192,7 +191,7 @@ gt_cm  = mpl.colors.LinearSegmentedColormap.from_list(" ", ["white", "red"])
 
 o_cm = mpl.colors.LinearSegmentedColormap.from_list(" ", ["orange", "black"])
 
-#examples = random.randint(6033, size = (5))
+#examples = random.randint(851, size = (5))
 #print(examples)
 
 #Favorite Examples:
@@ -210,7 +209,10 @@ o_cm = mpl.colors.LinearSegmentedColormap.from_list(" ", ["orange", "black"])
 #examples = [1150,731,3337]
 
 #EXAMPLES WITH WORST STRIPING IN THE VALIDATION SET
-examples = [16,23,62,276,307,338,374,405,442,672]
+#examples = [16,23,62,276,307,338,374,405,442,672]
+
+#examples = [1506]
+examples = [205]
 
 #for isamp in range(num1,num2):
 for isamp in examples:
@@ -327,16 +329,63 @@ for isamp in examples:
         plt.colorbar(interaction, ax = ax[1],location = 'right', fraction = 0.046, pad = 0.04)
         plt.show()
 
-#    int_shape(5)
-#    continue
+    int_shape(5)
+    continue
 
-    def og_im():
-        plt.imshow(original_image, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
-        plt.subplots_adjust(left = 0, bottom = 0.01, right = 1, top = .99, wspace = 0, hspace = 0)
+    def useful_figures(a):
+        name = names[a].lower().replace(' ', '_')
+        fig, ax = plt.subplots(1,4)
+        for i in range(4):
+            ax[i].set_xticks([])
+            ax[i].set_yticks([])
+        gs = ax[0].get_gridspec()
+
+        shape_fx = fig.add_subplot(gs[0:4])
+        shape_fx.grid(True, linestyle = ':')
+        shape_fx.set_axisbelow(True)
+
+        xvals = ebm.explain_global().data(a)['names'][1:len(ebm.explain_global().data(a)['names'])]
+        yvals = ebm.explain_global().data(a)['scores']
+
+        shape_fx.plot(xvals, yvals, color = 'dimgray')
+
+        if name in edited_shape_fxs:
+            position = np.where(edited_shape_fxs == name)[0][0]
+            bound_range = edit_range[position]
+            arr = np.full(int(bound_range[1] - bound_range[0]), np.nan)
+
+            #Where the shape function was edited, fill the upper/lower bounds with NaNs
+            lower_bounds = np.array(ebm.explain_global().data(a)['lower_bounds'])
+            lower_bounds[int(bound_range[0]):int(bound_range[1])] = arr
+
+            upper_bounds = np.array(ebm.explain_global().data(a)['upper_bounds'])
+            upper_bounds[int(bound_range[0]):int(bound_range[1])] = arr
+        else:
+            #If the shape functions weren't edited, the upper/lower bounds stay the same
+            lower_bounds = ebm.explain_global().data(a)['lower_bounds']
+            upper_bounds = ebm.explain_global().data(a)['upper_bounds']
+
+        shape_fx.fill_between(xvals, lower_bounds, upper_bounds, alpha = 0.6, color = 'dimgray')
+#        shape_fx.fill_between(xvals, ebm.explain_global().data(a)['lower_bounds'], ebm.explain_global().data(a)['upper_bounds'], alpha = 0.5, color = 'dimgray')
+
+        plt.subplots_adjust(left = 0.186, bottom = 0.31, right = 0.843, top = .75, wspace = 0.2, hspace = 0.2)
+
         plt.show()
 
-#    og_im()
-#    continue
+    useful_figures(2)
+    continue
+
+    def og_im():
+        #plt.imshow(ones, alpha = warm_glcm, cmap = red_cm, origin = 'lower', extent = (0,256,0,256))
+        plt.imshow(ones, alpha = cool_glcm, cmap = blu_cm, origin = 'lower', extent = (0,256,0,256))
+        plt.subplots_adjust(left = 0, bottom = 0.01, right = 1, top = .99, wspace = 0, hspace = 0)
+        plt.xticks([])
+        plt.yticks([])
+
+        plt.show()
+
+    #og_im()
+    #continue
 
     def slim_plotting():
         fig, ax = plt.subplots(1,3)
