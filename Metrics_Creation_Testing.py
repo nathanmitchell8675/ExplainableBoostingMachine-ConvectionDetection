@@ -22,61 +22,6 @@ num_rows = int(256/tile_size)
 num_cols = int(256/tile_size)
 num_tiles = int(num_rows * num_cols)
 
-
-def fix_striping(data,a,b,c,d,e,first_pass):
-    amap = data
-    sav = copy.deepcopy(amap)
-    amap = (laplace(amap, mode='mirror')).astype(int)
-    amap = np.where(amap >= 200, amap - 256, amap)
-    dx = sobel(amap, axis=0, mode='mirror')
-    dy = sobel(amap, axis=1, mode='mirror')
-    amap = np.degrees(np.arctan2(dy,dx))
-    amap = (abs(amap) < 45).astype(int)
-
-    ny,nx = amap.shape
-    wx = 2.5
-    fmap = np.empty(amap.shape)
-    fmap.fill(-1)
-    for iy,ix in np.ndindex(amap.shape):
-        i1 = ix-(wx/2) if (ix-(wx/2) >= 0) else 0
-        i2 = ix+(wx/2) if (ix+(wx/2) < nx) else nx-1
-        section = amap[iy,int(i1):int(i2+1)]
-        frac = np.sum(section)/len(section)
-        if frac >= 0.99:
-            fmap[iy,ix] = 1
-            if (iy>d): fmap[iy-(a):iy+(a),     ix-(d):ix+(e)] = 1
-            if (iy<(ny-a)): fmap[iy-(b):iy+(c),ix-(d):ix+(e)] = 1
-
-    amap = np.where(fmap == 1, 1, sav)
-    amap = np.expand_dims(amap, axis=2)
-    smap = inpaint.inpaint_biharmonic(amap, (fmap==1), channel_axis=-1)
-    smap = np.squeeze(smap)
-
-    test_list = np.squeeze(np.where(amap == 1, 1, 0))
-    max_lengths = np.zeros(256)
-    max_percent = np.zeros(256)
-    for i in range(test_list.shape[0]):
-        max_percent[i] = np.sum(test_list[i,:])/256
-        counter = defaultdict(list)
-        new_list = test_list[i]
-        if(np.sum(new_list) == 0):
-            max_lengths[i] = 0
-        else:
-            for key, val in groupby(new_list, lambda ele: "one" if ele > 0 else "zero"):
-                counter[key].append(len(list(val)))
-            max_lengths[i] = max(counter['one'])
-
-    max_l = max(max_lengths.flatten())
-    max_p = max(max_percent.flatten())
-
-    if (first_pass):
-        return max_l, max_p
-    else:
-        interval_min = 0
-        interval_max = 255
-        scaled_mat = (smap - np.min(smap)) / (np.max(smap) - np.min(smap)) * (interval_max - interval_min) + interval_min
-        return cv.blur(scaled_mat.astype(int), (3,3))
-
 #Load in the Images:
 images = xr.open_dataset('/home/nmitchell/GLCM/all_images.nc')
 
@@ -86,18 +31,22 @@ mins        = []
 metrics = {"Min Brightness": mins, "Mean Brightness": means}
 
 samples = []
+file_num = 20
 
 metrics_isamp = 0
 
 num1 = 0
 num2 = images.x_train_vis.sel(Sample = 20).shape[0]
 
-file_num = 20
-
-num_altered = 0
+striping_examples = np.array((26, 57,  88, 119, 145, 150, 151, 176, 181, 182, 207, 208, 212, 213, 238, 239, 242, 243, 244, 269, 270, 273, 274, 275, 298, 300, 301, 304, 305, 306, 329, 331, 332, 335, 336, 337, 360, 362, 363, 366, 367, 368, 391, 393, 394, 397, 398, 399, 422, 424, 425, 428, 429, 430, 453, 455, 456, 459, 460, 461, 484, 485, 486, 487, 490, 491, 492, 514, 515, 516, 517, 518, 520, 521, 522, 523, 540, 545, 546, 547, 548, 549, 551, 552, 553, 554, 561, 576, 577, 578, 579, 580, 582, 583, 584, 585, 602, 607, 608, 609, 610, 611, 614, 615, 616, 633, 638, 639, 640, 641, 642, 645, 646, 647, 669, 670, 672, 673, 676, 677, 678, 679, 695, 700, 701, 703, 704, 707, 708, 709, 732, 734, 735, 739, 740, 762, 763, 764, 765, 766, 770, 794, 796, 797, 801, 824, 825, 827, 832, 850))
 
 for n in range(num1, num2):
     isamp = n
+
+    if(isamp in striping_examples):
+        print("Sample Number: ", isamp, " skipped")
+        metrics_isamp+=1
+        continue
 
     print("Sample Number: ", metrics_isamp)
 
@@ -123,12 +72,6 @@ for n in range(num1, num2):
     convolve_data  = cv.filter2D(src = data, ddepth = -1, kernel = kernel_9x9)
     convolve_small = cv.resize(convolve_data, (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
     resized_IR     = cv.resize(data_IR.astype('float32'), (int(256/tile_size), int(256/tile_size)), interpolation = cv.INTER_NEAREST)
-
-    #Determine if there is any striping present
-#    max_l, max_p = fix_striping(data,1,-2,2,0,1,True)
-#    if((max_l >= 15) | (max_p >= .25)):
-    data = fix_striping(data,3,3,3,2,2,False)
-    num_altered+=1
 
     #Put image data into the xarray format
     data_flat        = np.expand_dims(data.flatten(), 0)
@@ -201,8 +144,6 @@ for n in range(num1, num2):
 
     samples.append(sample)
 
-print("Num Altered: ", num_altered)
-
 testing_data = xr.concat(samples, dim = "Sample")
 
-testing_data.to_netcdf('/home/nmitchell/GLCM/testing_data_fixStripes_all.nc')
+testing_data.to_netcdf('/home/nmitchell/GLCM/testing_data_reduced.nc')
