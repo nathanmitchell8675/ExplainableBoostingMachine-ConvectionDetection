@@ -135,7 +135,7 @@ def alter_model():
     y_stop = np.sum(y <= 225)
     (ebm.explain_global().data(7)['scores'].T)[0:y_stop, 0:x_stop] = (((ebm.explain_global().data(7)['scores'].T)[0:y_stop, 0:x_stop])/1) - 1
 
-alter_model()
+#alter_model()
 
 ###########################
 
@@ -249,17 +249,17 @@ for isamp in examples:
             ax[i].set_yticks([])
         gs = ax[0].get_gridspec()
 
-        ax[0].imshow(brightness, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
+#        ax[0].imshow(brightness, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
 
-        l = 11
-        u = 29
+        l = 29
+        u = 52.5
 
         shade_red = np.where((brightness >= l) & (brightness <= u), 1, np.nan)
 
-        ax[1].imshow(brightness, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
-        ax[1].imshow(shade_red, cmap = red_cm, origin = 'lower', extent = (0,256,0,256), alpha = 0.5)
+#        ax[1].imshow(brightness, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
+#        ax[1].imshow(shade_red, cmap = red_cm, origin = 'lower', extent = (0,256,0,256), alpha = 0.5)
 
-        shape_fx = fig.add_subplot(gs[2:4])
+        shape_fx = fig.add_subplot(gs[0:4])
         shape_fx.grid(True, linestyle = ':')
         shape_fx.set_axisbelow(True)
 
@@ -271,13 +271,13 @@ for isamp in examples:
         upper_bounds = np.array(ebm.explain_global().data(a)['upper_bounds'])
 
         xvals_g = np.where((xvals <= l) | (xvals >= u), xvals, np.nan)
-        xvals_r = np.where((xvals > l) & (xvals < u), xvals, np.nan)
+        xvals_r = np.where((xvals >= l) & (xvals <= u), xvals, np.nan)
 
         lower_g = np.where((xvals <= l) | (xvals >= u), lower_bounds, np.nan)
-        lower_r = np.where((xvals > l) & (xvals < u), lower_bounds, np.nan)
+        lower_r = np.where((xvals >= l) & (xvals <= u), lower_bounds, np.nan)
 
         upper_g = np.where((xvals <= l) | (xvals >= u), upper_bounds, np.nan)
-        upper_r = np.where((xvals > l) & (xvals < u), upper_bounds, np.nan)
+        upper_r = np.where((xvals >= l) & (xvals <= u), upper_bounds, np.nan)
 
         #Plot a dotted line at y = 0 for easy comparison across the full plot
         shape_fx.plot(xvals, np.zeros(len(xvals)), ':', color = 'black')
@@ -287,12 +287,12 @@ for isamp in examples:
         shape_fx.fill_between(xvals, lower_g, upper_g, color = 'dimgray', alpha = 0.25)
         shape_fx.fill_between(xvals, lower_r, upper_r, color = 'crimson', alpha = 0.25)
 
-        fig.set_size_inches((8.5, 11), forward=False)
-        plt.subplots_adjust(left = 0.012, bottom = 0.045, right = 0.971, top = 0.938, wspace = 0.2, hspace = 0.245)
+        plt.subplots_adjust(left = 0.186, bottom = 0.31, right = 0.843, top = .75, wspace = 0.2, hspace = 0.2)
+
         plt.show()
 
-#    big_shape_function(0)
-#    continue
+    #big_shape_function(0)
+    #continue
 
     def int_shape(b):
         fig, ax = plt.subplots(1,2)
@@ -329,8 +329,8 @@ for isamp in examples:
         plt.colorbar(interaction, ax = ax[1],location = 'right', fraction = 0.046, pad = 0.04)
         plt.show()
 
-    int_shape(5)
-    continue
+#    int_shape(5)
+#    continue
 
     def useful_figures(a):
         name = names[a].lower().replace(' ', '_')
@@ -372,20 +372,33 @@ for isamp in examples:
 
         plt.show()
 
-    useful_figures(2)
-    continue
+#    useful_figures(0)
+#    continue
 
     def og_im():
         #plt.imshow(ones, alpha = warm_glcm, cmap = red_cm, origin = 'lower', extent = (0,256,0,256))
-        plt.imshow(ones, alpha = cool_glcm, cmap = blu_cm, origin = 'lower', extent = (0,256,0,256))
+        #plt.imshow(ones, alpha = cool_glcm, cmap = blu_cm, origin = 'lower', extent = (0,256,0,256))
+        #print(brightness[45,38])
+
+        #print("x-vals")
+        #print(ebm.explain_global().data(0)['names'][1:len(ebm.explain_global().data(0)['names'])])
+
+        #print("y-vals")
+        #print(ebm.explain_global().data(0)['scores'])
+
+        #print(min(brightness.flatten()))
+
+        what = np.where((brightness >= 29) & (brightness <= 52.5), 0.5, 0)
+        plt.imshow(brightness, cmap = 'gray', origin = 'lower', extent = (0,256,0,256))
+        plt.imshow(ones, alpha = what, cmap = red_cm, origin = 'lower', extent = (0,256,0,256))
         plt.subplots_adjust(left = 0, bottom = 0.01, right = 1, top = .99, wspace = 0, hspace = 0)
         plt.xticks([])
         plt.yticks([])
 
         plt.show()
 
-    #og_im()
-    #continue
+    og_im()
+    continue
 
     def slim_plotting():
         fig, ax = plt.subplots(1,3)
